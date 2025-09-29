@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python manage.py:*)",
+      "Bash(find:*)",
+      "Bash(dir)",
+      "Bash(curl -c cookies.txt -b cookies.txt -X POST -d \"username=testuser&password=testpass123&csrfmiddlewaretoken=nC564rSm4jMYXPmSvl7u0R54CFcEUACgasttCwAM058eftmVmiQEalnbkyHs3hb4\" http://127.0.0.1:8000/login/ --header \"Referer: http://127.0.0.1:8000/login/\")",
+      "Bash(curl -c cookies.txt -b cookies.txt -X POST -d \"username=test@example.com&password=testpass123&csrfmiddlewaretoken=5XTFyGfrnlWFOKFOnYEI2SoXiNAd7Oj8SNh26LXRj7iV6oFReVnScmG40G51gvSW\" http://127.0.0.1:8000/login/ --header \"Referer: http://127.0.0.1:8000/login/\" -L)",
+      "Bash(curl:*)",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash(findstr:*)",
+      "Bash(dir:*)",
+      "Read(//c/Users/kynth/Downloads/**)",
+      "Bash(del \"C:\\Users\\kynth\\Desktop\\invoice_management_system\\invoices\\ai_categorizer.py\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

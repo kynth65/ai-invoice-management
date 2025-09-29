@@ -1,0 +1,456 @@
+{% extends 'invoices/base.html' %}
+{% load custom_filters %}
+
+{% block title %}Analytics - Invoice Management{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Page Header -->
+    <div style="margin-bottom: 2rem;">
+        <div>
+            <h1 style="font-size: 2rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem;">Analytics</h1>
+            <p style="color: var(--text-secondary);">Track your spending patterns and invoice insights</p>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="analytics-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin-bottom: 3rem;">
+        <div class="stat-card">
+            <div class="stat-number">{{ total_invoices|default:0 }}</div>
+            <div class="stat-label">Total Invoices</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-number">${{ total_amount|floatformat:2|floatformat:"-2" }}</div>
+            <div class="stat-label">Total Amount</div>
+        </div>
+    </div>
+
+    <!-- Charts and Data -->
+    <div style="margin-bottom: 3rem;">
+        <!-- Monthly Trends Chart -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <i class="fas fa-chart-line"></i>
+                    Monthly Spending Trends
+                </h2>
+            </div>
+            <div class="card-body">
+                <div style="position: relative; height: 300px;">
+                    <canvas id="monthlyChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Row -->
+    <div class="analytics-bottom-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+        <!-- Top Vendors -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <i class="fas fa-building"></i>
+                    Top Vendors
+                </h2>
+            </div>
+            <div class="card-body">
+                {% if vendor_data %}
+                    <div class="table-container" style="border: none;">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Vendor</th>
+                                    <th style="text-align: center;">Invoices</th>
+                                    <th style="text-align: right;">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for vendor in vendor_data %}
+                                <tr>
+                                    <td>
+                                        <div style="display: flex; align-items: center;">
+                                            <div style="width: 32px; height: 32px; background: var(--glass-bg); border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 0.75rem;">
+                                                <i class="fas fa-building" style="font-size: 0.75rem; color: var(--accent-primary);"></i>
+                                            </div>
+                                            <div style="font-weight: 500; color: var(--text-primary);">{{ vendor.vendor__name|default:"Unknown Vendor" }}</div>
+                                        </div>
+                                    </td>
+                                    <td style="text-align: center;">
+                                        <span class="badge bg-secondary">{{ vendor.count }}</span>
+                                    </td>
+                                    <td style="text-align: right; font-weight: 600; color: var(--accent-primary);">
+                                        ${{ vendor.total|format_currency }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div style="text-align: center; padding: 3rem 1rem;">
+                        <div style="width: 64px; height: 64px; background: var(--glass-bg); border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 1rem;">
+                            <i class="fas fa-building" style="font-size: 1.5rem; color: var(--text-muted);"></i>
+                        </div>
+                        <h4 style="color: var(--text-secondary); margin-bottom: 0.5rem;">No vendor data</h4>
+                        <p style="color: var(--text-muted);">Upload invoices to see vendor analysis</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Analytics Actions -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <i class="fas fa-bolt"></i>
+                    Quick Actions
+                </h2>
+            </div>
+            <div class="card-body">
+                <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem;">
+                    <a href="{% url 'invoice_list' %}" class="btn btn-primary" style="width: 100%; justify-content: flex-start;">
+                        <i class="fas fa-file-invoice"></i> View All Invoices
+                    </a>
+                    <button class="btn btn-secondary" onclick="document.getElementById('fileInput').click()" style="width: 100%; justify-content: flex-start;">
+                        <i class="fas fa-upload"></i> Upload New Invoice
+                    </button>
+                    <a href="{% url 'home' %}" class="btn btn-secondary" style="width: 100%; justify-content: flex-start;">
+                        <i class="fas fa-home"></i> Back to Dashboard
+                    </a>
+                </div>
+
+                <!-- Hidden upload form -->
+                <form id="uploadForm" method="post" action="{% url 'upload_invoice' %}" enctype="multipart/form-data" style="display: none;">
+                    {% csrf_token %}
+                    <input type="file" id="fileInput" name="invoice_file" accept=".pdf,.docx,.txt" onchange="handleFileSelect(this)">
+                </form>
+
+                <div style="border-top: 1px solid var(--border-primary); padding-top: 1.5rem;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div style="text-align: center;">
+                            <div style="font-weight: 600; color: var(--accent-primary); font-size: 1.125rem;">{{ period|title|default:"All Time" }}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Period</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-weight: 600; color: var(--accent-success); font-size: 1.125rem;">6</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Months</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // File upload functionality
+    function handleFileSelect(input) {
+        if (input.files && input.files[0]) {
+            const file = input.files[0];
+
+            // Get file extension
+            const fileName = file.name.toLowerCase();
+            const allowedExtensions = ['.pdf', '.docx', '.txt'];
+            const isValidType = allowedExtensions.some(ext => fileName.endsWith(ext));
+
+            // Validate file type
+            if (!isValidType) {
+                showAlert('Please select a PDF, Word document (.docx), or text file (.txt) only.', 'danger');
+                return;
+            }
+
+            // Validate file size (10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                showAlert('File size must be less than 10MB.', 'danger');
+                return;
+            }
+
+            // Show upload progress
+            showAlert('Uploading file...', 'info');
+
+            // Submit the form
+            document.getElementById('uploadForm').submit();
+        }
+    }
+
+    function showAlert(message, type) {
+        // Remove existing alerts
+        document.querySelectorAll('.temp-alert').forEach(alert => alert.remove());
+
+        const alertHTML = `
+            <div class="alert alert-${type} fade-in temp-alert" style="position: fixed; top: 100px; right: 20px; z-index: 1050; max-width: 400px; box-shadow: var(--shadow-lg);">
+                ${message}
+            </div>
+        `;
+
+        const alertDiv = document.createElement('div');
+        alertDiv.innerHTML = alertHTML;
+        document.body.appendChild(alertDiv);
+
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+
+    // Monthly trends chart with dark theme
+    const monthsData = {{ months_data|safe }};
+
+    if (monthsData && monthsData.length > 0) {
+        const ctx = document.getElementById('monthlyChart').getContext('2d');
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: monthsData.map(item => item.month),
+                datasets: [{
+                    label: 'Total Amount ($)',
+                    data: monthsData.map(item => item.total),
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#3b82f6',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 6
+                }, {
+                    label: 'Invoice Count',
+                    data: monthsData.map(item => item.count),
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 3,
+                    fill: false,
+                    tension: 0.4,
+                    pointBackgroundColor: '#10b981',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    yAxisID: 'y1'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 20,
+                            color: '#a3a3a6'
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(26, 26, 29, 0.95)',
+                        titleColor: '#ffffff',
+                        bodyColor: '#a3a3a6',
+                        borderColor: '#333338',
+                        borderWidth: 1,
+                        cornerRadius: 12,
+                        displayColors: true,
+                        callbacks: {
+                            label: function(context) {
+                                if (context.datasetIndex === 0) {
+                                    return 'Total: $' + context.parsed.y.toLocaleString();
+                                } else {
+                                    return 'Count: ' + context.parsed.y + ' invoices';
+                                }
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: '#6b6b70'
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        grid: {
+                            color: '#2a2a2e'
+                        },
+                        ticks: {
+                            color: '#6b6b70',
+                            callback: function(value) {
+                                if (value >= 1000000) {
+                                    return '$' + (value / 1000000).toFixed(1) + 'M';
+                                } else if (value >= 1000) {
+                                    return '$' + (value / 1000).toFixed(0) + 'K';
+                                }
+                                return '$' + value.toLocaleString();
+                            }
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        grid: {
+                            drawOnChartArea: false,
+                        },
+                        ticks: {
+                            color: '#6b6b70'
+                        }
+                    }
+                }
+            }
+        });
+    } else {
+        // Show empty state
+        const chartContainer = document.getElementById('monthlyChart').parentElement;
+        chartContainer.innerHTML = `
+            <div style="text-align: center; padding: 3rem 1rem;">
+                <div style="width: 80px; height: 80px; background: var(--glass-bg); border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 1.5rem;">
+                    <i class="fas fa-chart-line" style="font-size: 2rem; color: var(--text-muted);"></i>
+                </div>
+                <h4 style="color: var(--text-secondary); margin-bottom: 1rem;">No trend data available</h4>
+                <p style="color: var(--text-muted); margin-bottom: 2rem;">Upload some invoices to see spending trends over time</p>
+                <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                    <i class="fas fa-upload"></i> Upload Invoice
+                </button>
+            </div>
+        `;
+    }
+</script>
+
+<style>
+    /* Analytics Responsive Styles */
+    .analytics-chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+
+    /* Tablet Responsive */
+    @media (max-width: 1024px) and (min-width: 769px) {
+        .analytics-stats-grid {
+            grid-template-columns: 1fr 1fr !important;
+            gap: 1.5rem !important;
+        }
+
+        .analytics-bottom-grid {
+            gap: 1.5rem !important;
+        }
+
+        .analytics-chart-container {
+            height: 280px;
+        }
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        /* Page Header Mobile */
+        .page-header h1 {
+            font-size: 1.75rem !important;
+            text-align: center;
+        }
+
+        .page-header p {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Stats Grid Mobile */
+        .analytics-stats-grid {
+            grid-template-columns: 1fr !important;
+            gap: 1rem !important;
+            margin-bottom: 2rem !important;
+        }
+
+        /* Bottom Grid Mobile */
+        .analytics-bottom-grid {
+            grid-template-columns: 1fr !important;
+            gap: 1.5rem !important;
+        }
+
+        /* Chart Container Mobile */
+        .analytics-chart-container,
+        .card-body .analytics-chart-container {
+            height: 250px;
+            margin: 0 -0.5rem;
+        }
+
+        /* Card Adjustments */
+        .card-body {
+            padding: 1rem !important;
+        }
+
+        .card-header {
+            padding: 1.25rem 1rem !important;
+        }
+
+        /* Quick Actions Mobile */
+        .card-body > div:first-child {
+            gap: 0.5rem !important;
+        }
+
+        .card-body .btn {
+            padding: 0.875rem 1rem !important;
+            font-size: 0.9rem !important;
+        }
+    }
+
+    /* Small Mobile */
+    @media (max-width: 480px) {
+        .page-header {
+            margin-bottom: 1.5rem !important;
+        }
+
+        .analytics-stats-grid {
+            margin-bottom: 1.5rem !important;
+        }
+
+        .analytics-chart-container,
+        .card-body .analytics-chart-container {
+            height: 220px;
+            margin: 0 -0.75rem;
+        }
+
+        .stat-card {
+            padding: 1rem !important;
+        }
+
+        .stat-number {
+            font-size: 1.5rem !important;
+        }
+
+        .stat-label {
+            font-size: 0.8rem !important;
+        }
+
+        /* Analytics Quick Actions Grid */
+        .card-body > div:last-child > div {
+            grid-template-columns: 1fr !important;
+            gap: 0.75rem !important;
+        }
+    }
+
+    /* Chart.js responsive overrides and dark theme */
+    canvas {
+        background: transparent !important;
+        max-width: 100% !important;
+        height: auto !important;
+    }
+
+    .chart-container {
+        position: relative;
+        width: 100%;
+        overflow: hidden;
+    }
+</style>
+{% endblock %}
